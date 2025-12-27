@@ -11,9 +11,10 @@
   "2025-12-27T01-08-36-613Z_c17329aa-0c18-4a5a-9e12-32988dbc8238": {
     "titles": [
       "Test commit message as title",
-      "Pi hook: auto-title sessions from commit messages\n\n- Hook detects git commit commands via tool_result event\n- Extracts commit message from -m flag\n- Saves as session title to .resume-sessions/sessions.json\n- Updates terminal tab title via ANSI escape\n\nSimplified from earlier prompting approach which had timing issues."
+      "Pi hook: auto-title sessions from commit messages\n\n- Hook detects git commit commands via tool_result event\n- Extracts commit message from -m flag\n- Saves as session title to .resume-sessions/sessions.json\n- Updates terminal tab title via ANSI escape\n\nSimplified from earlier prompting approach which had timing issues.",
+      "Update progress docs for session 2"
     ],
     "created": "2025-12-27T01:11:13.120Z",
-    "last_updated": "2025-12-27T01:12:39.739Z"
+    "last_updated": "2025-12-27T01:13:46.175Z"
   }
 }

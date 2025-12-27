@@ -112,8 +112,117 @@ class TestUpdateSessionTitle:
         assert session["titles"].count("Same") == 1
 
 
+class TestFindPiSessions:
+    """Tests for Pi session discovery."""
+
+    def test_finds_sessions_in_project_dir(self, tmp_path):
+        """Find sessions stored in project subdirectories."""
+        from resume_sessions import find_pi_sessions
+
+        # Create mock Pi sessions directory structure
+        sessions_dir = tmp_path / "sessions"
+        project_dir = sessions_dir / "--Users-test-myproject--"
+        project_dir.mkdir(parents=True)
+
+        # Create some session files
+        (project_dir / "2025-01-01T00-00-00_abc123.jsonl").write_text("{}")
+        (project_dir / "2025-01-02T00-00-00_def456.jsonl").write_text("{}")
+
+        sessions = find_pi_sessions(sessions_dir)
+        assert len(sessions) == 2
+
+    def test_returns_session_info(self, tmp_path):
+        """Session info includes path, id, project, and timestamp."""
+        from resume_sessions import find_pi_sessions
+
+        sessions_dir = tmp_path / "sessions"
+        project_dir = sessions_dir / "--Users-test-myproject--"
+        project_dir.mkdir(parents=True)
+        (project_dir / "2025-01-15T10-30-00_abc123.jsonl").write_text("{}")
+
+        sessions = find_pi_sessions(sessions_dir)
+        assert len(sessions) == 1
+        s = sessions[0]
+        assert s["id"] == "2025-01-15T10-30-00_abc123"
+        assert s["project"] == "--Users-test-myproject--"
+        assert "path" in s
+
+
+class TestResumeDisplay:
+    """Tests for resume display with titles."""
+
+    def test_formats_session_with_title(self, tmp_path):
+        """Format a session that has a title."""
+        from resume_sessions import format_resume_line
+
+        session_info = {
+            "id": "2025-01-15T10-30-00_abc123",
+            "project": "--Users-test-myproject--",
+            "path": tmp_path / "session.jsonl",
+        }
+        titles = ["Initial setup", "Add feature X"]
+
+        line = format_resume_line(session_info, titles)
+        assert "2025-01-15" in line
+        assert "myproject" in line
+        assert "Add feature X" in line
+
+    def test_formats_session_without_title(self, tmp_path):
+        """Format a session with no title data."""
+        from resume_sessions import format_resume_line
+
+        session_info = {
+            "id": "2025-01-15T10-30-00_abc123",
+            "project": "--Users-test-myproject--",
+            "path": tmp_path / "session.jsonl",
+        }
+
+        line = format_resume_line(session_info, None)
+        assert "2025-01-15" in line
+        assert "myproject" in line
+        assert "(no title)" in line or "New session" in line
+
+
 class TestCLI:
     """Tests for CLI commands."""
+
+    def test_resume_command_no_sessions(self, tmp_path, monkeypatch):
+        """Test resume command with no sessions."""
+        from resume_sessions import cli
+        import resume_sessions
+
+        # Mock the sessions dir to an empty temp dir
+        monkeypatch.setattr(
+            resume_sessions, "get_pi_sessions_dir", lambda: tmp_path / "sessions"
+        )
+        (tmp_path / "sessions").mkdir()
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["resume"])
+        assert result.exit_code == 0
+        assert "No Pi sessions found" in result.output
+
+    def test_resume_command_with_sessions(self, tmp_path, monkeypatch):
+        """Test resume command displays sessions."""
+        from resume_sessions import cli
+        import resume_sessions
+
+        # Create mock Pi sessions directory
+        sessions_dir = tmp_path / "sessions"
+        project_dir = sessions_dir / "--mock-project--"
+        project_dir.mkdir(parents=True)
+        (project_dir / "2025-01-15T10-30-00_abc123.jsonl").write_text("{}")
+
+        # Mock the sessions dir
+        monkeypatch.setattr(
+            resume_sessions, "get_pi_sessions_dir", lambda: sessions_dir
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["resume"])
+        assert result.exit_code == 0
+        assert "2025-01-15" in result.output
+        assert "project" in result.output
 
     def test_title_command(self, tmp_repo, monkeypatch):
         monkeypatch.chdir(tmp_repo)
