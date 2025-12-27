@@ -400,6 +400,63 @@ class TestInteractiveSelector:
         assert len(result) == 0
 
 
+class TestClaudeCodeHook:
+    """Tests for Claude Code hook installation."""
+
+    def test_install_creates_hook_script(self, tmp_path, monkeypatch):
+        """Test that install creates the hook script."""
+        from resume_sessions import cli
+        from click.testing import CliRunner
+        from pathlib import Path
+
+        # Mock home directory
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        monkeypatch.setenv("HOME", str(fake_home))
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["install", "claude-code"])
+
+        assert result.exit_code == 0
+        assert "Created hook script" in result.output
+
+        # Check script exists
+        hook_script = fake_home / ".claude" / "hooks" / "resume-sessions-hook.py"
+        assert hook_script.exists()
+
+    def test_install_updates_settings(self, tmp_path, monkeypatch):
+        """Test that install updates settings.json."""
+        from resume_sessions import cli
+        from click.testing import CliRunner
+        from pathlib import Path
+        import json
+
+        # Mock home directory
+        fake_home = tmp_path / "home"
+        (fake_home / ".claude").mkdir(parents=True)
+        monkeypatch.setenv("HOME", str(fake_home))
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["install", "claude-code"])
+
+        assert result.exit_code == 0
+
+        # Check settings.json was created/updated
+        settings_file = fake_home / ".claude" / "settings.json"
+        assert settings_file.exists()
+
+        settings = json.loads(settings_file.read_text())
+        assert "hooks" in settings
+        assert "PostToolUse" in settings["hooks"]
+        assert any(
+            "resume-sessions-hook.py" in h.get("hooks", [{}])[0].get("command", "")
+            for h in settings["hooks"]["PostToolUse"]
+            if h.get("hooks")
+        )
+
+
 class TestCLI:
     """Tests for CLI commands."""
 

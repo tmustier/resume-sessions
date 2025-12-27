@@ -947,8 +947,173 @@ export default function (pi: HookAPI) {
 
 def install_claude_code_hook():
     """Install Claude Code hook."""
-    click.echo("Claude Code hook installation not yet implemented.")
-    click.echo("Claude Code uses a different hook system via ~/.claude/settings.json")
+    hooks_dir = Path.home() / ".claude" / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+
+    # Write the hook script
+    hook_script = hooks_dir / "resume-sessions-hook.py"
+    hook_content = '''#!/usr/bin/env python3
+"""
+Claude Code hook for resume-sessions.
+After a successful git commit, extracts the commit message and saves it as the session title.
+
+Input: JSON via stdin with PostToolUse data
+Output: None (just logs to sessions.json)
+"""
+
+import json
+import os
+import re
+import sys
+from datetime import datetime
+from pathlib import Path
+
+
+def extract_commit_message(command: str) -> str | None:
+    """Extract commit message from git commit command."""
+    # Match -m "message" or -m 'message'
+    match = re.search(r'-m\\s+["\\'](.*?)["\\']', command, re.DOTALL)
+    if not match:
+        return None
+    
+    # Take only the first line
+    full_message = match.group(1)
+    first_line = full_message.split('\\n')[0].strip()
+    return first_line if first_line else None
+
+
+def load_sessions(cwd: str) -> dict:
+    """Load sessions from the project's sessions.json."""
+    sessions_file = Path(cwd) / ".resume-sessions" / "sessions.json"
+    try:
+        if sessions_file.exists():
+            return json.loads(sessions_file.read_text())
+    except (json.JSONDecodeError, IOError):
+        pass
+    return {}
+
+
+def save_sessions(cwd: str, sessions: dict) -> None:
+    """Save sessions to the project's sessions.json."""
+    sessions_dir = Path(cwd) / ".resume-sessions"
+    sessions_dir.mkdir(parents=True, exist_ok=True)
+    sessions_file = sessions_dir / "sessions.json"
+    sessions_file.write_text(json.dumps(sessions, indent=2))
+
+
+def update_title(cwd: str, session_id: str, new_title: str) -> None:
+    """Update the session title."""
+    sessions = load_sessions(cwd)
+    now = datetime.utcnow().isoformat() + "Z"
+    
+    if session_id not in sessions:
+        sessions[session_id] = {
+            "titles": [],
+            "created": now,
+            "last_updated": now,
+        }
+    
+    session = sessions[session_id]
+    current_title = session["titles"][-1] if session["titles"] else None
+    
+    # Only append if different
+    if new_title != current_title:
+        session["titles"].append(new_title)
+    
+    session["last_updated"] = now
+    save_sessions(cwd, sessions)
+    
+    # Update terminal tab title
+    sys.stdout.write(f"\\033]0;{new_title}\\007")
+    sys.stdout.flush()
+
+
+def main():
+    # Read hook input from stdin
+    try:
+        input_data = json.load(sys.stdin)
+    except json.JSONDecodeError:
+        return
+    
+    # Only handle PostToolUse for Bash
+    if input_data.get("hook_event_name") != "PostToolUse":
+        return
+    if input_data.get("tool_name") != "Bash":
+        return
+    
+    # Get the command from tool_input
+    tool_input = input_data.get("tool_input", {})
+    command = tool_input.get("command", "")
+    
+    # Check if it's a git commit
+    if "git commit" not in command:
+        return
+    
+    # Check if the tool succeeded (no error in stderr)
+    tool_response = input_data.get("tool_response", {})
+    if tool_response.get("stderr") and "error" in tool_response.get("stderr", "").lower():
+        return
+    
+    # Extract commit message
+    commit_message = extract_commit_message(command)
+    if not commit_message:
+        return
+    
+    # Get session ID and cwd
+    session_id = input_data.get("session_id", "")
+    cwd = input_data.get("cwd", os.getcwd())
+    
+    if session_id:
+        update_title(cwd, session_id, commit_message)
+
+
+if __name__ == "__main__":
+    main()
+'''
+    hook_script.write_text(hook_content)
+    hook_script.chmod(0o755)
+    click.echo(f"✓ Created hook script: {hook_script}")
+
+    # Update settings.json
+    settings_file = Path.home() / ".claude" / "settings.json"
+    try:
+        if settings_file.exists():
+            settings = json.loads(settings_file.read_text())
+        else:
+            settings = {}
+    except json.JSONDecodeError:
+        settings = {}
+
+    # Ensure hooks structure exists
+    if "hooks" not in settings:
+        settings["hooks"] = {}
+    if "PostToolUse" not in settings["hooks"]:
+        settings["hooks"]["PostToolUse"] = []
+
+    # Check if hook already exists
+    post_hooks = settings["hooks"]["PostToolUse"]
+    hook_exists = any(
+        "resume-sessions-hook.py" in h.get("hooks", [{}])[0].get("command", "")
+        for h in post_hooks
+        if h.get("hooks")
+    )
+
+    if not hook_exists:
+        new_hook = {
+            "matcher": "Bash",
+            "hooks": [{"type": "command", "command": str(hook_script)}],
+        }
+        post_hooks.append(new_hook)
+        settings_file.write_text(json.dumps(settings, indent=2))
+        click.echo(f"✓ Added hook to: {settings_file}")
+    else:
+        click.echo(f"✓ Hook already configured in: {settings_file}")
+
+    click.echo("")
+    click.echo(
+        "After git commits, the commit message (first line) becomes the session title."
+    )
+    click.echo("Titles are saved to .resume-sessions/sessions.json in each repo.")
 
 
 def main():
