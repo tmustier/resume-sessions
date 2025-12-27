@@ -183,6 +183,163 @@ class TestResumeDisplay:
         assert "(no title)" in line or "New session" in line
 
 
+class TestRelativeTime:
+    """Tests for relative time formatting."""
+
+    def test_just_now(self):
+        from datetime import datetime, timezone
+        from resume_sessions import format_relative_time
+
+        now = datetime.now(timezone.utc)
+        assert format_relative_time(now) == "just now"
+
+    def test_minutes_ago(self):
+        from datetime import datetime, timezone, timedelta
+        from resume_sessions import format_relative_time
+
+        past = datetime.now(timezone.utc) - timedelta(minutes=5)
+        assert format_relative_time(past) == "5 minutes ago"
+
+    def test_one_minute_ago(self):
+        from datetime import datetime, timezone, timedelta
+        from resume_sessions import format_relative_time
+
+        past = datetime.now(timezone.utc) - timedelta(minutes=1)
+        assert format_relative_time(past) == "1 minute ago"
+
+    def test_hours_ago(self):
+        from datetime import datetime, timezone, timedelta
+        from resume_sessions import format_relative_time
+
+        past = datetime.now(timezone.utc) - timedelta(hours=3)
+        assert format_relative_time(past) == "3 hours ago"
+
+    def test_one_hour_ago(self):
+        from datetime import datetime, timezone, timedelta
+        from resume_sessions import format_relative_time
+
+        past = datetime.now(timezone.utc) - timedelta(hours=1)
+        assert format_relative_time(past) == "1 hour ago"
+
+    def test_days_ago(self):
+        from datetime import datetime, timezone, timedelta
+        from resume_sessions import format_relative_time
+
+        past = datetime.now(timezone.utc) - timedelta(days=2)
+        assert format_relative_time(past) == "2 days ago"
+
+    def test_one_day_ago(self):
+        from datetime import datetime, timezone, timedelta
+        from resume_sessions import format_relative_time
+
+        past = datetime.now(timezone.utc) - timedelta(days=1)
+        assert format_relative_time(past) == "1 day ago"
+
+    def test_weeks_ago(self):
+        from datetime import datetime, timezone, timedelta
+        from resume_sessions import format_relative_time
+
+        past = datetime.now(timezone.utc) - timedelta(days=14)
+        assert format_relative_time(past) == "2 weeks ago"
+
+    def test_older_shows_date(self):
+        from datetime import datetime, timezone, timedelta
+        from resume_sessions import format_relative_time
+
+        past = datetime.now(timezone.utc) - timedelta(days=60)
+        result = format_relative_time(past)
+        # Should show actual date for older than ~4 weeks
+        assert "ago" not in result or "weeks" in result
+
+
+class TestSessionParsing:
+    """Tests for parsing Pi session files."""
+
+    def test_parse_first_message(self, tmp_path):
+        """Extract first user message from session file."""
+        from resume_sessions import parse_session_file
+
+        session_file = tmp_path / "session.jsonl"
+        session_file.write_text(
+            '{"type":"session","data":{}}\n'
+            '{"type":"message","message":{"role":"user","content":[{"type":"text","text":"Fix the bug in auth.py"}]}}\n'
+            '{"type":"message","message":{"role":"assistant","content":[{"type":"text","text":"I will fix it."}]}}\n'
+        )
+
+        info = parse_session_file(session_file)
+        assert info["first_message"] == "Fix the bug in auth.py"
+        assert info["message_count"] >= 2
+
+    def test_parse_empty_session(self, tmp_path):
+        """Handle empty or malformed session files."""
+        from resume_sessions import parse_session_file
+
+        session_file = tmp_path / "session.jsonl"
+        session_file.write_text("")
+
+        info = parse_session_file(session_file)
+        assert info["first_message"] == ""
+        assert info["message_count"] == 0
+
+    def test_parse_counts_messages(self, tmp_path):
+        """Count total messages in session."""
+        from resume_sessions import parse_session_file
+
+        session_file = tmp_path / "session.jsonl"
+        lines = [
+            '{"type":"message","message":{"role":"user","content":[{"type":"text","text":"Hello"}]}}',
+            '{"type":"message","message":{"role":"assistant","content":[{"type":"text","text":"Hi"}]}}',
+            '{"type":"message","message":{"role":"user","content":[{"type":"text","text":"Bye"}]}}',
+        ]
+        session_file.write_text("\n".join(lines))
+
+        info = parse_session_file(session_file)
+        assert info["message_count"] == 3
+
+
+class TestEnhancedResumeDisplay:
+    """Tests for enhanced resume display format."""
+
+    def test_format_includes_relative_time(self, tmp_path):
+        """Display uses relative time instead of ISO date."""
+        from datetime import datetime, timezone, timedelta
+        from resume_sessions import format_resume_line_enhanced
+
+        session_info = {
+            "id": "2025-01-15T10-30-00_abc123",
+            "project": "--Users-test-myproject--",
+            "path": tmp_path / "session.jsonl",
+            "modified": datetime.now(timezone.utc) - timedelta(hours=2),
+            "first_message": "Fix the authentication bug",
+            "message_count": 15,
+        }
+        titles = ["Fix auth bug"]
+
+        line = format_resume_line_enhanced(session_info, titles)
+        assert "2 hours ago" in line
+        assert "15 messages" in line
+
+    def test_format_truncates_long_message(self, tmp_path):
+        """First message is truncated if too long."""
+        from datetime import datetime, timezone
+        from resume_sessions import format_resume_line_enhanced
+
+        long_message = "This is a very long first message that should be truncated because it exceeds the maximum display width for the terminal"
+        session_info = {
+            "id": "2025-01-15T10-30-00_abc123",
+            "project": "--Users-test-myproject--",
+            "path": tmp_path / "session.jsonl",
+            "modified": datetime.now(timezone.utc),
+            "first_message": long_message,
+            "message_count": 5,
+        }
+        titles = ["Some task"]
+
+        line = format_resume_line_enhanced(session_info, titles)
+        assert "..." in line
+        assert len(line.split("\n")[0]) <= 100  # Reasonable line length
+
+
 class TestCLI:
     """Tests for CLI commands."""
 
@@ -211,7 +368,12 @@ class TestCLI:
         sessions_dir = tmp_path / "sessions"
         project_dir = sessions_dir / "--mock-project--"
         project_dir.mkdir(parents=True)
-        (project_dir / "2025-01-15T10-30-00_abc123.jsonl").write_text("{}")
+        # Create a session with actual content
+        session_content = (
+            '{"type":"message","message":{"role":"user","content":[{"type":"text","text":"Hello world"}]}}\n'
+            '{"type":"message","message":{"role":"assistant","content":[{"type":"text","text":"Hi!"}]}}\n'
+        )
+        (project_dir / "2025-01-15T10-30-00_abc123.jsonl").write_text(session_content)
 
         # Mock the sessions dir
         monkeypatch.setattr(
@@ -221,8 +383,10 @@ class TestCLI:
         runner = CliRunner()
         result = runner.invoke(cli, ["resume"])
         assert result.exit_code == 0
-        assert "2025-01-15" in result.output
+        # Enhanced format shows project path and messages
         assert "project" in result.output
+        assert "messages" in result.output
+        assert "Hello world" in result.output
 
     def test_title_command(self, tmp_repo, monkeypatch):
         monkeypatch.chdir(tmp_repo)
