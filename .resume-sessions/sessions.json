@@ -21,9 +21,10 @@
   },
   "2025-12-27T01-28-13-631Z_328874d1-5cce-4b97-8679-7621177ad57b": {
     "titles": [
-      "Enhanced resume display: relative time, first message, multi-line format\n\n- Add format_relative_time() for human-readable timestamps ("
+      "Enhanced resume display: relative time, first message, multi-line format\n\n- Add format_relative_time() for human-readable timestamps (",
+      "Add interactive session selector with search and --run option\n\n- Add rich dependency for TUI rendering\n- Add fuzzy_filter_sessions() for searching by project/message/title\n- Add build_session_choices() to prepare display data\n- Add run_interactive_selector() with keyboard navigation:\n  - ↑↓ to navigate, Enter to select, / to search, q to quit\n- Add --interactive/-i flag for TUI mode\n- Add --run flag to execute pi --resume with selected session\n- 40 tests passing"
     ],
     "created": "2025-12-27T01:36:55.961Z",
-    "last_updated": "2025-12-27T01:36:55.961Z"
+    "last_updated": "2025-12-27T01:40:10.079Z"
   }
 }

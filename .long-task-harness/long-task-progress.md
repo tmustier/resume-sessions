@@ -26,13 +26,16 @@ Auto-titled sessions for AI coding agents. Makes `--resume` actually useful by s
 ### What's Working
 - Core session storage (load/save/update)
 - Title formatting with abbreviation
-- CLI commands (title, show, list, install)
+- CLI commands (title, show, list, install, resume)
 - Pi hook: extracts commit message, saves as title, updates tab
 - Terminal tab title updates on commit
-- 18 tests passing
+- Enhanced resume display with relative time, first message, message count
+- Interactive session selector with search and keyboard navigation
+- 40 tests passing
 
 ### What's Not Working
 - Claude Code hook not implemented
+- Hook captures full commit message body (should be first line only)
 
 ### Blocked On
 - Nothing
@@ -40,6 +43,48 @@ Auto-titled sessions for AI coding agents. Makes `--resume` actually useful by s
 ---
 
 ## Session Log
+
+### Session 3 | 2025-12-27 | Commits: 4c8a620..d6b8ad4
+
+#### Metadata
+- **Features**: cli-001 (completed), cli-002 (completed)
+- **Files Changed**: 
+  - `src/resume_sessions/__init__.py` - enhanced display + interactive selector
+  - `tests/test_sessions.py` - 40 tests (up from 24)
+  - `pyproject.toml` - added rich dependency
+  - `README.md` - updated documentation
+
+#### Goal
+Improve CLI to match draft spec and add interactive mode
+
+#### Accomplished
+- [x] Add format_relative_time() - "2 hours ago" instead of ISO dates
+- [x] Add parse_session_file() - extract first message and message count
+- [x] Add format_resume_line_enhanced() - multi-line display format
+- [x] Add fuzzy_filter_sessions() - search by project/message/title
+- [x] Add build_session_choices() - prepare data for TUI
+- [x] Add run_interactive_selector() - keyboard navigation with rich
+- [x] Add --interactive/-i flag for TUI mode
+- [x] Add --run flag to execute pi --resume
+- [x] Add --simple flag for original single-line format
+- [x] Updated README with new CLI documentation
+
+#### Decisions
+- **[D6]** Use rich library for TUI (lightweight, well-known)
+- **[D7]** Enhanced format shows title, first message (truncated), and metadata
+- **[D8]** Interactive mode uses termios for raw keyboard input
+
+#### Context & Learnings
+- Researched Pi's session-selector.js and claude-session-browser for inspiration
+- Pi uses custom pi-tui package with React-like components
+- claude-resume project stores custom session names via /rename slash command
+
+#### Next Steps
+1. Fix hook to only capture first line of commit message
+2. Implement Claude Code hook
+3. Consider adding numbered selection (like claude-resume: `cr 1`)
+
+---
 
 ### Session 2 | 2025-12-27 | Commits: 5bd7633..a7ab5b8
 

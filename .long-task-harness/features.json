@@ -5,8 +5,8 @@
     "project_name": "resume-sessions",
     "created": "2025-12-27",
     "last_updated": "2025-12-27",
-    "total_features": 6,
-    "completed_features": 5
+    "total_features": 8,
+    "completed_features": 7
   },
   "features": [
     {
@@ -172,6 +172,73 @@
           "hooks/pi/resume-sessions.ts"
         ],
         "decisions": []
+      }
+    },
+    {
+      "id": "cli-001",
+      "name": "Enhanced CLI display",
+      "description": "Improved resume display with relative time and message preview",
+      "steps": [
+        "Add format_relative_time() for human-readable timestamps",
+        "Add parse_session_file() to extract first message",
+        "Add format_resume_line_enhanced() for multi-line output",
+        "Add --simple flag for single-line format"
+      ],
+      "passes": true,
+      "notes": "Multi-line format with title, first message, and metadata",
+      "history": {
+        "sessions": [
+          {
+            "session": 3,
+            "date": "2025-12-27",
+            "action": "completed",
+            "summary": "Enhanced display format matching README spec"
+          }
+        ],
+        "files": [
+          "src/resume_sessions/__init__.py",
+          "tests/test_sessions.py"
+        ],
+        "decisions": [
+          {
+            "session": 3,
+            "decision": "Multi-line format: title (bold), first message (dim), metadata (dim)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cli-002",
+      "name": "Interactive session selector",
+      "description": "TUI for browsing and selecting sessions",
+      "steps": [
+        "Add fuzzy search across project/message/title",
+        "Add keyboard navigation (up/down/enter/escape/q)",
+        "Add --interactive/-i flag",
+        "Add --run flag to execute pi --resume"
+      ],
+      "passes": true,
+      "notes": "Uses rich for rendering, termios for raw input",
+      "history": {
+        "sessions": [
+          {
+            "session": 3,
+            "date": "2025-12-27",
+            "action": "completed",
+            "summary": "Interactive mode with search and keyboard navigation"
+          }
+        ],
+        "files": [
+          "src/resume_sessions/__init__.py",
+          "tests/test_sessions.py",
+          "pyproject.toml"
+        ],
+        "decisions": [
+          {
+            "session": 3,
+            "decision": "Use rich library for TUI - lightweight and well-known"
+          }
+        ]
       }
     }
   ]
