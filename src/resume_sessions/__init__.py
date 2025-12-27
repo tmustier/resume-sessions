@@ -811,11 +811,10 @@ def install_pi_hook():
 
     hook_path = hooks_dir / "resume-sessions.ts"
 
-    # Read the hook from package data or use inline version
+    # Hook content: extracts commit message and uses first line as title
     hook_content = """/**
  * Pi agent hook for resume-sessions.
- * After a successful git commit, prompts the LLM to title the session.
- * Captures the response and saves directly to .resume-sessions/sessions.json
+ * After a successful git commit, extracts the commit message and uses it as the session title.
  */
 import type { HookAPI } from "@mariozechner/pi-coding-agent/hooks";
 import * as fs from "node:fs";
@@ -831,7 +830,6 @@ interface Sessions {
   [key: string]: Session;
 }
 
-let awaitingTitleResponse = false;
 let currentSessionId: string | null = null;
 let currentCwd: string | null = null;
 
@@ -855,21 +853,13 @@ function saveSessions(cwd: string, sessions: Sessions): void {
   fs.writeFileSync(sessionsFile, JSON.stringify(sessions, null, 2));
 }
 
-function getCurrentTitle(sessions: Sessions, sessionId: string): string {
-  const session = sessions[sessionId];
-  if (session?.titles?.length > 0) {
-    return session.titles[session.titles.length - 1];
-  }
-  return "New session";
-}
-
 function updateTitle(cwd: string, sessionId: string, newTitle: string): void {
   const sessions = loadSessions(cwd);
   const now = new Date().toISOString();
   
   if (!sessions[sessionId]) {
     sessions[sessionId] = {
-      titles: ["New session"],
+      titles: [],
       created: now,
       last_updated: now,
     };
@@ -890,25 +880,31 @@ function updateTitle(cwd: string, sessionId: string, newTitle: string): void {
   process.stdout.write(`\\x1b]0;${newTitle}\\x07`);
 }
 
-function extractTitle(text: string): string | null {
-  const lines = text.trim().split("\\n");
+function extractCommitMessage(command: string): string | null {
+  // Match -m "message" or -m 'message'
+  const match = command.match(/-m\\s+["']([^"']+)["']/);
+  if (!match) return null;
   
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.length > 50) continue;
-    if (trimmed.toLowerCase().includes("title unchanged")) return null;
-    if (trimmed.toLowerCase().includes("current title")) continue;
-    if (trimmed.startsWith("[") || trimmed.startsWith("*")) continue;
-    
-    const words = trimmed.split(/\\s+/);
-    if (words.length >= 2 && words.length <= 6) {
-      return trimmed.replace(/[.!?:]+$/, "");
+  // Take only the first line (before any newline)
+  const fullMessage = match[1];
+  const firstLine = fullMessage.split('\\n')[0].trim();
+  return firstLine || null;
+}
+
+function extractCwd(command: string, defaultCwd: string): string {
+  const cdMatch = command.match(/cd\\s+([^\\s&;]+)/);
+  if (cdMatch) {
+    let targetDir = cdMatch[1];
+    if (targetDir.startsWith("~")) {
+      targetDir = targetDir.replace("~", process.env.HOME || "");
     }
+    return path.resolve(defaultCwd, targetDir);
   }
-  return null;
+  return defaultCwd;
 }
 
 export default function (pi: HookAPI) {
+  // Track session ID and cwd
   pi.on("session", async (event, ctx) => {
     if (event.reason === "start" || event.reason === "switch") {
       if (ctx.sessionFile) {
@@ -918,53 +914,34 @@ export default function (pi: HookAPI) {
     }
   });
 
+  // Detect successful git commit and extract commit message as title
   pi.on("tool_result", async (event, ctx) => {
     if (event.toolName !== "bash") return undefined;
+
     const command = event.input.command as string;
+    
     if (command.includes("git commit") && !event.isError) {
-      awaitingTitleResponse = true;
-    }
-    return undefined;
-  });
-
-  pi.on("turn_end", async (event, ctx) => {
-    if (!currentSessionId || !currentCwd) return;
-
-    if (awaitingTitleResponse) {
-      awaitingTitleResponse = false;
-      const sessions = loadSessions(currentCwd);
-      const currentTitle = getCurrentTitle(sessions, currentSessionId);
-
-      pi.send(
-        `[Session Title] Please provide a 2-4 word title for this session.\\n` +
-        `Current title: "${currentTitle}"\\n` +
-        `Reply with just the title (2-4 words), or "Title unchanged" to keep it.`
-      );
-      return;
-    }
-
-    const message = event.message;
-    if (!message) return;
-    const content = message.content;
-    if (!Array.isArray(content)) return;
-
-    for (const block of content) {
-      if (block.type === "text" && typeof block.text === "string") {
-        const title = extractTitle(block.text);
-        if (title) {
-          updateTitle(currentCwd, currentSessionId, title);
-          ctx.ui.notify(`Session titled: ${title}`, "info");
-          return;
-        }
+      const commitMessage = extractCommitMessage(command);
+      if (!commitMessage) {
+        return undefined;
+      }
+      
+      const cwd = extractCwd(command, ctx.cwd);
+      
+      if (currentSessionId) {
+        updateTitle(cwd, currentSessionId, commitMessage);
       }
     }
+    return undefined;
   });
 }
 """
     hook_path.write_text(hook_content)
     click.echo(f"✓ Installed Pi hook: {hook_path}")
     click.echo("")
-    click.echo("After git commits, the LLM will be prompted to title the session.")
+    click.echo(
+        "After git commits, the commit message (first line) becomes the session title."
+    )
     click.echo("Titles are saved to .resume-sessions/sessions.json in each repo.")
 
 
