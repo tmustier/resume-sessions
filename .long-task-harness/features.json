@@ -1,0 +1,131 @@
+{
+  "version": "2.0",
+  "description": "Feature checklist with history tracking for session continuity",
+  "metadata": {
+    "project_name": "resume-sessions",
+    "created": "2025-12-27",
+    "last_updated": "2025-12-27",
+    "total_features": 6,
+    "completed_features": 2
+  },
+  "features": [
+    {
+      "id": "core-001",
+      "name": "Session title storage",
+      "description": "Store session titles in .resume-sessions/sessions.json",
+      "steps": [
+        "Load/save sessions from JSON file",
+        "Get session by ID (create if not exists)",
+        "Update title (append if different)",
+        "Format titles for display"
+      ],
+      "passes": true,
+      "notes": "Core functionality implemented and tested",
+      "history": {
+        "sessions": [
+          {"session": 1, "date": "2025-12-27", "action": "completed", "summary": "Initial implementation"}
+        ],
+        "files": [
+          "src/resume_sessions/__init__.py",
+          "tests/test_sessions.py"
+        ],
+        "decisions": []
+      }
+    },
+    {
+      "id": "core-002",
+      "name": "CLI commands",
+      "description": "Command-line interface for managing session titles",
+      "steps": [
+        "title command - set/update title",
+        "show command - display title history",
+        "list command - list all sessions",
+        "install command - install hooks"
+      ],
+      "passes": true,
+      "notes": "Basic CLI implemented",
+      "history": {
+        "sessions": [
+          {"session": 1, "date": "2025-12-27", "action": "completed", "summary": "Initial implementation"}
+        ],
+        "files": [
+          "src/resume_sessions/__init__.py"
+        ],
+        "decisions": []
+      }
+    },
+    {
+      "id": "hook-001",
+      "name": "Pi agent hook",
+      "description": "Hook that triggers title prompt on git commit",
+      "steps": [
+        "Detect git commit in tool_call",
+        "Prompt LLM for 2-4 word title",
+        "Capture response and save to sessions.json",
+        "Update terminal tab title"
+      ],
+      "passes": false,
+      "notes": "Basic hook structure created, needs LLM response capture",
+      "history": {
+        "sessions": [],
+        "files": [],
+        "decisions": [
+          {"session": 1, "decision": "Use pi.send() to inject title request, but need to capture response"}
+        ]
+      }
+    },
+    {
+      "id": "hook-002",
+      "name": "Claude Code hook",
+      "description": "Hook for Claude Code using settings.json hooks",
+      "steps": [
+        "Implement PreToolUse/PostToolUse hooks",
+        "Detect git commit commands",
+        "Trigger title prompt",
+        "Save title to sessions.json"
+      ],
+      "passes": false,
+      "notes": "Not started",
+      "history": {
+        "sessions": [],
+        "files": [],
+        "decisions": []
+      }
+    },
+    {
+      "id": "display-001",
+      "name": "Enhanced resume display",
+      "description": "Show titles in agent --resume list",
+      "steps": [
+        "Read .resume-sessions/sessions.json",
+        "Format title history line",
+        "Show commit count",
+        "PR to Pi/Claude Code to integrate"
+      ],
+      "passes": false,
+      "notes": "Requires agent patches",
+      "history": {
+        "sessions": [],
+        "files": [],
+        "decisions": []
+      }
+    },
+    {
+      "id": "terminal-001",
+      "name": "Terminal tab title",
+      "description": "Update terminal tab title on session title change",
+      "steps": [
+        "Use ANSI escape sequence OSC 0",
+        "Call on title update",
+        "Works in common terminals"
+      ],
+      "passes": false,
+      "notes": "Function implemented, needs testing in real terminal",
+      "history": {
+        "sessions": [],
+        "files": [],
+        "decisions": []
+      }
+    }
+  ]
+}
