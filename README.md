@@ -30,7 +30,8 @@ The LLM titles the session based on commit messages. If the focus changes, a new
 uv tool install resume-sessions
 
 # Install hooks for your agent
-resume-sessions install pi
+resume-sessions install pi           # For Pi agent
+resume-sessions install claude-code  # For Claude Code
 
 # View recent sessions
 resume-sessions resume
@@ -82,7 +83,7 @@ The interactive mode (`-i` or `--run`) provides:
 ## Supported Agents
 
 - [x] Pi (`~/.pi/agent/hooks/`)
-- [ ] Claude Code (`~/.claude/settings.json` hooks)
+- [x] Claude Code (`~/.claude/settings.json` hooks)
 - [ ] Codex
 - [ ] Droid
 

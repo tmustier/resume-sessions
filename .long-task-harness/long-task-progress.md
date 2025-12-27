@@ -34,8 +34,7 @@ Auto-titled sessions for AI coding agents. Makes `--resume` actually useful by s
 - 40 tests passing
 
 ### What's Not Working
-- Claude Code hook not implemented
-- Hook captures full commit message body (should be first line only)
+- Nothing currently!
 
 ### Blocked On
 - Nothing
@@ -80,9 +79,10 @@ Improve CLI to match draft spec and add interactive mode
 - claude-resume project stores custom session names via /rename slash command
 
 #### Next Steps
-1. Fix hook to only capture first line of commit message
-2. Implement Claude Code hook
+1. ✅ Fixed in this session
+2. ✅ Claude Code hook implemented
 3. Consider adding numbered selection (like claude-resume: `cr 1`)
+4. Consider adding session renaming via CLI
 
 ---
 

@@ -6,7 +6,7 @@
     "created": "2025-12-27",
     "last_updated": "2025-12-27",
     "total_features": 8,
-    "completed_features": 7
+    "completed_features": 8
   },
   "features": [
     {
@@ -112,11 +112,22 @@
         "Extract commit message",
         "Save title to sessions.json"
       ],
-      "passes": false,
-      "notes": "Not started",
+      "passes": true,
+      "notes": "Implemented using PostToolUse hook with Python script",
       "history": {
-        "sessions": [],
-        "files": [],
+        "sessions": [
+          {
+            "session": 3,
+            "date": "2025-12-27",
+            "action": "completed",
+            "summary": "Created Python hook script and settings.json installer"
+          }
+        ],
+        "files": [
+          "src/resume_sessions/__init__.py",
+          "~/.claude/hooks/resume-sessions-hook.py",
+          "~/.claude/settings.json"
+        ],
         "decisions": []
       }
     },
