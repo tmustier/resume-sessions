@@ -12,9 +12,10 @@
     "titles": [
       "Test commit message as title",
       "Pi hook: auto-title sessions from commit messages\n\n- Hook detects git commit commands via tool_result event\n- Extracts commit message from -m flag\n- Saves as session title to .resume-sessions/sessions.json\n- Updates terminal tab title via ANSI escape\n\nSimplified from earlier prompting approach which had timing issues.",
-      "Update progress docs for session 2"
+      "Update progress docs for session 2",
+      "Add resume command to display Pi sessions with titles\n\n- find_pi_sessions() discovers sessions in ~/.pi/agent/sessions/\n- project_name_to_path() converts encoded dir names back to paths\n- resume command shows sessions with dates, projects, and titles\n- Smart path resolution handles hyphens in directory names"
     ],
     "created": "2025-12-27T01:11:13.120Z",
-    "last_updated": "2025-12-27T01:13:46.175Z"
+    "last_updated": "2025-12-27T01:22:55.855Z"
   }
 }

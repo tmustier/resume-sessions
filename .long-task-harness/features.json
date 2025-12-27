@@ -6,7 +6,7 @@
     "created": "2025-12-27",
     "last_updated": "2025-12-27",
     "total_features": 6,
-    "completed_features": 4
+    "completed_features": 5
   },
   "features": [
     {
@@ -23,7 +23,12 @@
       "notes": "Core functionality implemented and tested",
       "history": {
         "sessions": [
-          {"session": 1, "date": "2025-12-27", "action": "completed", "summary": "Initial implementation"}
+          {
+            "session": 1,
+            "date": "2025-12-27",
+            "action": "completed",
+            "summary": "Initial implementation"
+          }
         ],
         "files": [
           "src/resume_sessions/__init__.py",
@@ -46,7 +51,12 @@
       "notes": "Basic CLI implemented",
       "history": {
         "sessions": [
-          {"session": 1, "date": "2025-12-27", "action": "completed", "summary": "Initial implementation"}
+          {
+            "session": 1,
+            "date": "2025-12-27",
+            "action": "completed",
+            "summary": "Initial implementation"
+          }
         ],
         "files": [
           "src/resume_sessions/__init__.py"
@@ -68,14 +78,27 @@
       "notes": "Simplified to use commit message directly instead of prompting LLM",
       "history": {
         "sessions": [
-          {"session": 1, "date": "2025-12-27", "action": "started", "summary": "Initial prompting approach"},
-          {"session": 2, "date": "2025-12-27", "action": "completed", "summary": "Simplified to use commit messages"}
+          {
+            "session": 1,
+            "date": "2025-12-27",
+            "action": "started",
+            "summary": "Initial prompting approach"
+          },
+          {
+            "session": 2,
+            "date": "2025-12-27",
+            "action": "completed",
+            "summary": "Simplified to use commit messages"
+          }
         ],
         "files": [
           "hooks/pi/resume-sessions.ts"
         ],
         "decisions": [
-          {"session": 2, "decision": "Use commit message as title instead of prompting LLM - simpler and avoids timing issues"}
+          {
+            "session": 2,
+            "decision": "Use commit message as title instead of prompting LLM - simpler and avoids timing issues"
+          }
         ]
       }
     },
@@ -107,11 +130,21 @@
         "Show commit count",
         "PR to Pi/Claude Code to integrate"
       ],
-      "passes": false,
-      "notes": "Requires agent patches",
+      "passes": true,
+      "notes": "Implemented resume command that shows sessions with titles",
       "history": {
-        "sessions": [],
-        "files": [],
+        "sessions": [
+          {
+            "session": 2,
+            "date": "2025-12-27",
+            "action": "completed",
+            "summary": "Added resume CLI command"
+          }
+        ],
+        "files": [
+          "src/resume_sessions/__init__.py",
+          "tests/test_sessions.py"
+        ],
         "decisions": []
       }
     },
@@ -128,7 +161,12 @@
       "notes": "Implemented in Pi hook, updates tab on each commit",
       "history": {
         "sessions": [
-          {"session": 2, "date": "2025-12-27", "action": "completed", "summary": "Works via ANSI escape in hook"}
+          {
+            "session": 2,
+            "date": "2025-12-27",
+            "action": "completed",
+            "summary": "Works via ANSI escape in hook"
+          }
         ],
         "files": [
           "hooks/pi/resume-sessions.ts"

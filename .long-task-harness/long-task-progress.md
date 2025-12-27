@@ -33,7 +33,6 @@ Auto-titled sessions for AI coding agents. Makes `--resume` actually useful by s
 
 ### What's Not Working
 - Claude Code hook not implemented
-- Agent integration (display in --resume)
 
 ### Blocked On
 - Nothing
@@ -42,16 +41,18 @@ Auto-titled sessions for AI coding agents. Makes `--resume` actually useful by s
 
 ## Session Log
 
-### Session 2 | 2025-12-27 | Commits: 5bd7633..1e97067
+### Session 2 | 2025-12-27 | Commits: 5bd7633..a7ab5b8
 
 #### Metadata
-- **Features**: hook-001 (completed), terminal-001 (completed)
+- **Features**: hook-001 (completed), terminal-001 (completed), display-001 (completed)
 - **Files Changed**: 
   - `hooks/pi/resume-sessions.ts` - simplified to use commit messages
+  - `src/resume_sessions/__init__.py` - added resume command
+  - `tests/test_sessions.py` - 24 tests total
   - `.resume-sessions/sessions.json` - test data
 
 #### Goal
-Get Pi hook working reliably
+Get Pi hook working reliably + add resume display
 
 #### Accomplished
 - [x] Tested hook in fresh Pi session
@@ -59,6 +60,8 @@ Get Pi hook working reliably
 - [x] Simplified hook: use commit message as title instead of prompting LLM
 - [x] Terminal tab title updates on each commit
 - [x] Squashed 20+ debug commits into clean history
+- [x] Added `resume` CLI command to display sessions with titles
+- [x] Smart path resolution for Pi's encoded directory names
 
 #### Decisions
 - **[D5]** Use commit message as title instead of prompting LLM
@@ -79,8 +82,8 @@ Get Pi hook working reliably
 
 #### Next Steps
 1. Implement Claude Code hook (different hook system)
-2. PR to Pi to display titles in --resume
-3. Consider: should we also capture branch name or other context?
+2. Consider: should we also capture branch name or other context?
+3. Consider: integrate with Pi's native --resume command?
 
 ---
 
