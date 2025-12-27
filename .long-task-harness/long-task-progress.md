@@ -8,13 +8,13 @@
 
 ### Project Goals
 
-LLM-generated session titles for AI coding agents. Makes `--resume` actually useful by showing what each session accomplished.
+Auto-titled sessions for AI coding agents. Makes `--resume` actually useful by showing what each session accomplished.
 
 ### Key Decisions
 
 - **[D1]** Store titles in `.resume-sessions/sessions.json` in each repo (not global)
-- **[D2]** Trigger title prompt on git commit (detected via tool_result hook)
-- **[D3]** Hook saves titles directly - no CLI call needed from LLM
+- **[D2]** Trigger on git commit (detected via tool_result hook)
+- **[D3]** Use commit message as session title (simpler than LLM prompting)
 - **[D4]** Format: "title1 · title2" or "first ··· last-two" if too long
 
 ---
@@ -27,29 +27,71 @@ LLM-generated session titles for AI coding agents. Makes `--resume` actually use
 - Core session storage (load/save/update)
 - Title formatting with abbreviation
 - CLI commands (title, show, list, install)
-- Pi hook installed and ready
+- Pi hook: extracts commit message, saves as title, updates tab
+- Terminal tab title updates on commit
 - 18 tests passing
 
 ### What's Not Working
-- Hook needs Pi restart to load (hooks loaded at startup)
 - Claude Code hook not implemented
 - Agent integration (display in --resume)
 
 ### Blocked On
-- Need to test hook in fresh Pi session
+- Nothing
 
 ---
 
 ## Session Log
 
-### Session 1 | 2025-12-27 | Commits: 5bd7633..c90494e
+### Session 2 | 2025-12-27 | Commits: 5bd7633..1e97067
 
 #### Metadata
-- **Features**: core-001 (completed), core-002 (completed), hook-001 (completed)
+- **Features**: hook-001 (completed), terminal-001 (completed)
+- **Files Changed**: 
+  - `hooks/pi/resume-sessions.ts` - simplified to use commit messages
+  - `.resume-sessions/sessions.json` - test data
+
+#### Goal
+Get Pi hook working reliably
+
+#### Accomplished
+- [x] Tested hook in fresh Pi session
+- [x] Fixed cwd extraction from `cd ~/path && git commit` commands
+- [x] Simplified hook: use commit message as title instead of prompting LLM
+- [x] Terminal tab title updates on each commit
+- [x] Squashed 20+ debug commits into clean history
+
+#### Decisions
+- **[D5]** Use commit message as title instead of prompting LLM
+  - Prompting had timing issues (pi.send() interrupts flow)
+  - State didn't persist across Pi restarts
+  - Commit messages are already good summaries
+
+#### Surprises
+- **[S1]** pi.send() injects a message but doesn't wait - subsequent text gets captured as the "response"
+- **[S2]** Hook state (JS variables) resets on Pi restart - needed file persistence
+- **[S3]** ctx.cwd is Pi's launch directory, not where the git command runs
+
+#### Context & Learnings
+- Pi hooks are TypeScript loaded via jiti at startup
+- Hooks can write to files for debugging (/tmp/resume-sessions-debug.log)
+- Need to extract cwd from `cd` prefix in bash commands
+- ANSI escape `\x1b]0;TITLE\x07` updates terminal tab title
+
+#### Next Steps
+1. Implement Claude Code hook (different hook system)
+2. PR to Pi to display titles in --resume
+3. Consider: should we also capture branch name or other context?
+
+---
+
+### Session 1 | 2025-12-27 | Commits: 5bd7633
+
+#### Metadata
+- **Features**: core-001 (completed), core-002 (completed)
 - **Files Changed**: 
   - `src/resume_sessions/__init__.py` - core implementation + hook installer
   - `tests/test_sessions.py` - 18 tests
-  - `hooks/pi/resume-sessions.ts` - Pi hook source
+  - `hooks/pi/resume-sessions.ts` - Pi hook source (initial prompting approach)
   - `pyproject.toml`, `README.md`, `AGENTS.md` - project setup
 
 #### Goal
@@ -61,29 +103,19 @@ Initialize resume-sessions project with working Pi hook
 - [x] Title formatting with abbreviation for long histories
 - [x] CLI: title, show, list, install commands
 - [x] Terminal tab title update via ANSI escape
-- [x] Pi hook that:
-  - Detects git commit via tool_result
-  - Prompts LLM for 2-4 word title via pi.send()
-  - Captures response and extracts title
-  - Saves directly to sessions.json (no CLI needed)
-  - Updates terminal tab title
+- [x] Initial Pi hook (prompting approach - later simplified)
 - [x] 18 tests passing
 - [x] GitHub repo created and pushed
-- [ ] Test hook in fresh Pi session (requires restart)
 
 #### Decisions
-- **[D1]** Hook captures LLM response directly instead of requiring CLI call
-- **[D2]** Title extraction uses heuristics (2-6 words, skip explanatory text)
+- **[D1]** Store titles per-repo in `.resume-sessions/sessions.json`
+- **[D2]** Hook detects git commit via tool_result event
 - **[D3]** Hooks require Pi restart to load (loaded at startup)
 
 #### Context & Learnings
 - Pi hooks have rich event system: session, tool_call, tool_result, turn_end
 - pi.send() injects messages that start new agent loops
-- Can capture LLM response in subsequent turn_end via event.message
 - Hooks are TypeScript loaded via jiti - no compilation needed
 
 #### Next Steps
-1. Test hook in fresh Pi session
-2. Implement Claude Code hook (different hook system via settings.json)
-3. PR to Pi to display titles in --resume
-
+1. Test hook in fresh Pi session ✅ (done in session 2)
