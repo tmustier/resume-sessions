@@ -59,13 +59,17 @@ class TestSessionStorage:
         assert sessions == {}
 
     def test_save_and_load(self, tmp_repo):
-        sessions = {"test-123": {"titles": ["Test"], "created": "now", "last_updated": "now"}}
+        sessions = {
+            "test-123": {"titles": ["Test"], "created": "now", "last_updated": "now"}
+        }
         save_sessions(sessions, tmp_repo)
         loaded = load_sessions(tmp_repo)
         assert loaded == sessions
 
     def test_creates_directory(self, tmp_repo):
-        sessions = {"test": {"titles": ["Test"], "created": "now", "last_updated": "now"}}
+        sessions = {
+            "test": {"titles": ["Test"], "created": "now", "last_updated": "now"}
+        }
         save_sessions(sessions, tmp_repo)
         assert (tmp_repo / ".resume-sessions" / "sessions.json").exists()
 

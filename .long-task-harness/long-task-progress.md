@@ -13,8 +13,8 @@ LLM-generated session titles for AI coding agents. Makes `--resume` actually use
 ### Key Decisions
 
 - **[D1]** Store titles in `.resume-sessions/sessions.json` in each repo (not global)
-- **[D2]** Trigger title prompt on pre-commit hook (natural checkpoint)
-- **[D3]** Accumulate title history (show evolution of session focus)
+- **[D2]** Trigger title prompt on git commit (detected via tool_result hook)
+- **[D3]** Hook saves titles directly - no CLI call needed from LLM
 - **[D4]** Format: "title1 · title2" or "first ··· last-two" if too long
 
 ---
@@ -27,55 +27,63 @@ LLM-generated session titles for AI coding agents. Makes `--resume` actually use
 - Core session storage (load/save/update)
 - Title formatting with abbreviation
 - CLI commands (title, show, list, install)
+- Pi hook installed and ready
 - 18 tests passing
 
 ### What's Not Working
-- Pi hook needs LLM response capture mechanism
+- Hook needs Pi restart to load (hooks loaded at startup)
 - Claude Code hook not implemented
 - Agent integration (display in --resume)
 
 ### Blocked On
-- Need to figure out how to capture LLM response to title prompt in Pi hook
+- Need to test hook in fresh Pi session
 
 ---
 
 ## Session Log
 
-### Session 1 | 2025-12-27 | Commits: pending
+### Session 1 | 2025-12-27 | Commits: 5bd7633..c90494e
 
 #### Metadata
-- **Features**: core-001 (completed), core-002 (completed), hook-001 (started)
+- **Features**: core-001 (completed), core-002 (completed), hook-001 (completed)
 - **Files Changed**: 
-  - `src/resume_sessions/__init__.py` - core implementation
+  - `src/resume_sessions/__init__.py` - core implementation + hook installer
   - `tests/test_sessions.py` - 18 tests
+  - `hooks/pi/resume-sessions.ts` - Pi hook source
   - `pyproject.toml`, `README.md`, `AGENTS.md` - project setup
 
 #### Goal
-Initialize resume-sessions project with core functionality
+Initialize resume-sessions project with working Pi hook
 
 #### Accomplished
 - [x] Project structure with uv
 - [x] Session storage (load/save/update to .resume-sessions/sessions.json)
 - [x] Title formatting with abbreviation for long histories
 - [x] CLI: title, show, list, install commands
-- [x] Terminal tab title update (set_terminal_title)
-- [x] Basic Pi hook structure (needs LLM response capture)
+- [x] Terminal tab title update via ANSI escape
+- [x] Pi hook that:
+  - Detects git commit via tool_result
+  - Prompts LLM for 2-4 word title via pi.send()
+  - Captures response and extracts title
+  - Saves directly to sessions.json (no CLI needed)
+  - Updates terminal tab title
 - [x] 18 tests passing
-- [ ] Figure out LLM response capture for hooks
+- [x] GitHub repo created and pushed
+- [ ] Test hook in fresh Pi session (requires restart)
 
 #### Decisions
-- **[D1]** Using .resume-sessions/sessions.json per-repo storage
-- **[D2]** Pi hook uses tool_result event after git commit succeeds
-- **[D3]** pi.send() can inject title request, but capturing response is tricky
+- **[D1]** Hook captures LLM response directly instead of requiring CLI call
+- **[D2]** Title extraction uses heuristics (2-6 words, skip explanatory text)
+- **[D3]** Hooks require Pi restart to load (loaded at startup)
 
 #### Context & Learnings
-- Pi hooks have rich event system with tool_call/tool_result events
-- Can detect git commit via bash tool with command matching
-- pi.send() injects messages but there's no direct way to capture the response
-- May need a different approach: perhaps use a custom tool or file-based handoff
+- Pi hooks have rich event system: session, tool_call, tool_result, turn_end
+- pi.send() injects messages that start new agent loops
+- Can capture LLM response in subsequent turn_end via event.message
+- Hooks are TypeScript loaded via jiti - no compilation needed
 
 #### Next Steps
-1. Design LLM response capture mechanism for Pi hook
-2. Test hook end-to-end with real Pi session
-3. Create GitHub repo and push
+1. Test hook in fresh Pi session
+2. Implement Claude Code hook (different hook system via settings.json)
+3. PR to Pi to display titles in --resume
 

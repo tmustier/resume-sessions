@@ -180,56 +180,162 @@ def install_pi_hook():
     hooks_dir.mkdir(parents=True, exist_ok=True)
 
     hook_path = hooks_dir / "resume-sessions.ts"
-    hook_content = '''import type { HookAPI } from "@mariozechner/pi-coding-agent/hooks";
+
+    # Read the hook from package data or use inline version
+    hook_content = """/**
+ * Pi agent hook for resume-sessions.
+ * After a successful git commit, prompts the LLM to title the session.
+ * Captures the response and saves directly to .resume-sessions/sessions.json
+ */
+import type { HookAPI } from "@mariozechner/pi-coding-agent/hooks";
+import * as fs from "node:fs";
+import * as path from "node:path";
+
+interface Session {
+  titles: string[];
+  created: string;
+  last_updated: string;
+}
+
+interface Sessions {
+  [key: string]: Session;
+}
+
+let awaitingTitleResponse = false;
+let currentSessionId: string | null = null;
+let currentCwd: string | null = null;
+
+function loadSessions(cwd: string): Sessions {
+  const sessionsFile = path.join(cwd, ".resume-sessions", "sessions.json");
+  try {
+    if (fs.existsSync(sessionsFile)) {
+      return JSON.parse(fs.readFileSync(sessionsFile, "utf-8"));
+    }
+  } catch {}
+  return {};
+}
+
+function saveSessions(cwd: string, sessions: Sessions): void {
+  const sessionsDir = path.join(cwd, ".resume-sessions");
+  const sessionsFile = path.join(sessionsDir, "sessions.json");
+  
+  if (!fs.existsSync(sessionsDir)) {
+    fs.mkdirSync(sessionsDir, { recursive: true });
+  }
+  fs.writeFileSync(sessionsFile, JSON.stringify(sessions, null, 2));
+}
+
+function getCurrentTitle(sessions: Sessions, sessionId: string): string {
+  const session = sessions[sessionId];
+  if (session?.titles?.length > 0) {
+    return session.titles[session.titles.length - 1];
+  }
+  return "New session";
+}
+
+function updateTitle(cwd: string, sessionId: string, newTitle: string): void {
+  const sessions = loadSessions(cwd);
+  const now = new Date().toISOString();
+  
+  if (!sessions[sessionId]) {
+    sessions[sessionId] = {
+      titles: ["New session"],
+      created: now,
+      last_updated: now,
+    };
+  }
+  
+  const session = sessions[sessionId];
+  const currentTitle = session.titles[session.titles.length - 1];
+  
+  // Only append if different
+  if (newTitle !== currentTitle) {
+    session.titles.push(newTitle);
+  }
+  session.last_updated = now;
+  
+  saveSessions(cwd, sessions);
+  
+  // Update terminal tab title
+  process.stdout.write(`\\x1b]0;${newTitle}\\x07`);
+}
+
+function extractTitle(text: string): string | null {
+  const lines = text.trim().split("\\n");
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.length > 50) continue;
+    if (trimmed.toLowerCase().includes("title unchanged")) return null;
+    if (trimmed.toLowerCase().includes("current title")) continue;
+    if (trimmed.startsWith("[") || trimmed.startsWith("*")) continue;
+    
+    const words = trimmed.split(/\\s+/);
+    if (words.length >= 2 && words.length <= 6) {
+      return trimmed.replace(/[.!?:]+$/, "");
+    }
+  }
+  return null;
+}
 
 export default function (pi: HookAPI) {
-  pi.on("tool_call", async (event, ctx) => {
-    if (event.toolName !== "bash") return undefined;
-
-    const command = event.input.command as string;
-
-    // Check if this is a git commit
-    if (!command.includes("git commit")) return undefined;
-
-    // Get session ID from session file path
-    const sessionFile = ctx.sessionFile;
-    if (!sessionFile) return undefined;
-
-    // Extract session ID from filename
-    const sessionId = sessionFile.split("/").pop()?.replace(".jsonl", "") ?? "unknown";
-
-    // Prompt for title after commit succeeds (we'll handle this in tool_result)
-    return undefined;
+  pi.on("session", async (event, ctx) => {
+    if (event.reason === "start" || event.reason === "switch") {
+      if (ctx.sessionFile) {
+        currentSessionId = path.basename(ctx.sessionFile).replace(".jsonl", "");
+        currentCwd = ctx.cwd;
+      }
+    }
   });
 
   pi.on("tool_result", async (event, ctx) => {
     if (event.toolName !== "bash") return undefined;
-
     const command = event.input.command as string;
-    if (!command.includes("git commit")) return undefined;
-
-    // Only proceed if commit succeeded (exit code 0)
-    if (event.isError) return undefined;
-
-    const sessionFile = ctx.sessionFile;
-    if (!sessionFile) return undefined;
-
-    const sessionId = sessionFile.split("/").pop()?.replace(".jsonl", "") ?? "unknown";
-
-    // Use pi.send() to ask for a title
-    // The hook injects a message that the LLM will respond to
-    pi.send(`[Session Title Request] Please title this session in 2-4 words. Just respond with the title, nothing else. Current working directory: ${ctx.cwd}`);
-
+    if (command.includes("git commit") && !event.isError) {
+      awaitingTitleResponse = true;
+    }
     return undefined;
   });
 
-  // TODO: Capture the LLM's title response and save it
-  // This requires intercepting the next assistant message
+  pi.on("turn_end", async (event, ctx) => {
+    if (!currentSessionId || !currentCwd) return;
+
+    if (awaitingTitleResponse) {
+      awaitingTitleResponse = false;
+      const sessions = loadSessions(currentCwd);
+      const currentTitle = getCurrentTitle(sessions, currentSessionId);
+
+      pi.send(
+        `[Session Title] Please provide a 2-4 word title for this session.\\n` +
+        `Current title: "${currentTitle}"\\n` +
+        `Reply with just the title (2-4 words), or "Title unchanged" to keep it.`
+      );
+      return;
+    }
+
+    const message = event.message;
+    if (!message) return;
+    const content = message.content;
+    if (!Array.isArray(content)) return;
+
+    for (const block of content) {
+      if (block.type === "text" && typeof block.text === "string") {
+        const title = extractTitle(block.text);
+        if (title) {
+          updateTitle(currentCwd, currentSessionId, title);
+          ctx.ui.notify(`Session titled: ${title}`, "info");
+          return;
+        }
+      }
+    }
+  });
 }
-'''
+"""
     hook_path.write_text(hook_content)
-    click.echo(f"Installed Pi hook: {hook_path}")
-    click.echo("Note: This is a basic hook. Full implementation requires capturing LLM response.")
+    click.echo(f"✓ Installed Pi hook: {hook_path}")
+    click.echo("")
+    click.echo("After git commits, the LLM will be prompted to title the session.")
+    click.echo("Titles are saved to .resume-sessions/sessions.json in each repo.")
 
 
 def install_claude_code_hook():
