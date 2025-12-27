@@ -2,12 +2,15 @@
 
 import json
 import os
+import subprocess
 import sys
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional
 
 import click
+from rich.console import Console
+from rich.text import Text
 
 
 def format_relative_time(dt: datetime) -> str:
@@ -159,6 +162,210 @@ def format_resume_line_enhanced(session_info: dict, titles: Optional[list[str]])
     lines.append(click.style(meta, dim=True))
 
     return "\n".join(lines)
+
+
+def fuzzy_filter_sessions(sessions: list[dict], query: str) -> list[dict]:
+    """Filter sessions by fuzzy search query.
+
+    Searches in:
+      - project name/path
+      - first message
+      - titles (if available in session_info)
+
+    Args:
+        sessions: List of session info dicts
+        query: Search query string
+
+    Returns:
+        Filtered list of sessions matching the query
+    """
+    if not query:
+        return sessions
+
+    query_lower = query.lower()
+    results = []
+
+    for session in sessions:
+        # Search in project name
+        project = session.get("project", "")
+        project_path = project_name_to_path(project)
+
+        # Search in first message
+        first_msg = session.get("first_message", "")
+
+        # Search in titles if present
+        titles = session.get("titles", [])
+        titles_text = " ".join(titles) if titles else ""
+
+        # Combine searchable text
+        searchable = f"{project} {project_path} {first_msg} {titles_text}".lower()
+
+        if query_lower in searchable:
+            results.append(session)
+
+    return results
+
+
+def build_session_choices(
+    sessions: list[dict], titles_map: dict[str, list[str]]
+) -> list[dict]:
+    """Build choices for interactive session selector.
+
+    Args:
+        sessions: List of session info dicts
+        titles_map: Map of session_id -> list of titles
+
+    Returns:
+        List of choice dicts with 'display' and 'session_id' keys
+    """
+    choices = []
+
+    for session in sessions:
+        session_id = session["id"]
+        titles = titles_map.get(session_id, [])
+
+        # Build display string
+        if titles:
+            title_str = format_titles(titles, max_length=50)
+        else:
+            title_str = project_name_to_path(session.get("project", ""))
+
+        # Add relative time
+        modified = session.get("modified")
+        if isinstance(modified, datetime):
+            time_str = format_relative_time(modified)
+        else:
+            time_str = ""
+
+        # Add message count
+        count = session.get("message_count", 0)
+        count_str = f"{count} msgs"
+
+        # Format display line
+        display = f"{title_str}  ({time_str}, {count_str})"
+
+        choices.append(
+            {
+                "display": display,
+                "session_id": session_id,
+                "project": session.get("project", ""),
+                "titles": titles,
+            }
+        )
+
+    return choices
+
+
+def run_interactive_selector(
+    sessions: list[dict], titles_map: dict[str, list[str]]
+) -> Optional[str]:
+    """Run interactive session selector using rich.
+
+    Args:
+        sessions: List of session info dicts
+        titles_map: Map of session_id -> list of titles
+
+    Returns:
+        Selected session_id or None if cancelled
+    """
+    import sys
+    import termios
+    import tty
+
+    console = Console()
+    choices = build_session_choices(sessions, titles_map)
+
+    if not choices:
+        console.print("[yellow]No sessions available[/yellow]")
+        return None
+
+    selected_idx = 0
+    search_query = ""
+
+    def get_filtered_choices():
+        if not search_query:
+            return choices
+        query_lower = search_query.lower()
+        return [c for c in choices if query_lower in c["display"].lower()]
+
+    def render():
+        console.clear()
+        console.print(
+            "[bold]Resume Session[/bold]  (↑↓ navigate, Enter select, / search, q quit)\n"
+        )
+
+        filtered = get_filtered_choices()
+
+        if search_query:
+            console.print(f"[cyan]Search: {search_query}[/cyan]\n")
+
+        if not filtered:
+            console.print("[dim]No matching sessions[/dim]")
+            return filtered
+
+        for i, choice in enumerate(filtered[:15]):  # Show max 15
+            if i == selected_idx:
+                console.print(f"[bold cyan]› {choice['display']}[/bold cyan]")
+            else:
+                console.print(f"  {choice['display']}")
+
+        if len(filtered) > 15:
+            console.print(f"\n[dim]... and {len(filtered) - 15} more[/dim]")
+
+        return filtered
+
+    def getch():
+        """Read a single character from stdin."""
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            ch = sys.stdin.read(1)
+            # Handle escape sequences (arrow keys)
+            if ch == "\x1b":
+                ch2 = sys.stdin.read(1)
+                if ch2 == "[":
+                    ch3 = sys.stdin.read(1)
+                    return f"\x1b[{ch3}"
+            return ch
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+    try:
+        while True:
+            filtered = render()
+
+            ch = getch()
+
+            if ch == "q" or ch == "\x03":  # q or Ctrl+C
+                console.clear()
+                return None
+            elif ch == "\x1b[A":  # Up arrow
+                selected_idx = max(0, selected_idx - 1)
+            elif ch == "\x1b[B":  # Down arrow
+                selected_idx = (
+                    min(len(filtered) - 1, selected_idx + 1) if filtered else 0
+                )
+            elif ch == "\r" or ch == "\n":  # Enter
+                if filtered and 0 <= selected_idx < len(filtered):
+                    console.clear()
+                    return filtered[selected_idx]["session_id"]
+            elif ch == "/":  # Start search
+                search_query = ""
+                selected_idx = 0
+            elif ch == "\x7f":  # Backspace
+                search_query = search_query[:-1]
+                selected_idx = 0
+            elif ch == "\x1b":  # Escape - clear search
+                search_query = ""
+                selected_idx = 0
+            elif ch.isprintable():
+                search_query += ch
+                selected_idx = 0
+
+    except KeyboardInterrupt:
+        console.clear()
+        return None
 
 
 # Storage filename
@@ -472,7 +679,18 @@ def show(session_id: str):
     "-p", "--project", default=None, help="Filter by project path (fuzzy match)"
 )
 @click.option("--simple", is_flag=True, help="Use simple single-line format")
-def resume(limit: int, project: Optional[str], simple: bool):
+@click.option(
+    "-i",
+    "--interactive",
+    is_flag=True,
+    help="Interactive mode with search and selection",
+)
+@click.option(
+    "--run", is_flag=True, help="Run pi --resume with selected session (implies -i)"
+)
+def resume(
+    limit: int, project: Optional[str], simple: bool, interactive: bool, run: bool
+):
     """Show recent Pi sessions with their titles.
 
     Discovers sessions from ~/.pi/agent/sessions/ and matches them
@@ -485,7 +703,15 @@ def resume(limit: int, project: Optional[str], simple: bool):
         resume-sessions resume -n 5         # Show last 5 sessions
 
         resume-sessions resume -p dashboard # Filter by project name
+
+        resume-sessions resume -i           # Interactive mode
+
+        resume-sessions resume --run        # Select and resume a session
     """
+    # --run implies interactive
+    if run:
+        interactive = True
+
     sessions = find_pi_sessions()
 
     if not sessions:
@@ -502,8 +728,9 @@ def resume(limit: int, project: Optional[str], simple: bool):
             or project_lower in project_name_to_path(s["project"]).lower()
         ]
 
-    # Limit results
-    sessions = sessions[:limit]
+    # Limit results (for non-interactive mode)
+    if not interactive:
+        sessions = sessions[:limit]
 
     if not sessions:
         click.echo("No matching sessions found.")
@@ -514,19 +741,43 @@ def resume(limit: int, project: Optional[str], simple: bool):
         parsed = parse_session_file(session_info["path"])
         session_info.update(parsed)
 
-    for i, session_info in enumerate(sessions):
-        # Convert project dir name to path for title lookup
+    # Build titles map
+    titles_map = {}
+    for session_info in sessions:
         project_path = project_name_to_path(session_info["project"])
         titles = load_titles_for_session(session_info["id"], project_path)
+        if titles:
+            titles_map[session_info["id"]] = titles
 
-        if simple:
-            line = format_resume_line(session_info, titles)
-            click.echo(line)
-        else:
-            line = format_resume_line_enhanced(session_info, titles)
-            click.echo(line)
-            if i < len(sessions) - 1:
-                click.echo()  # Blank line between sessions
+    if interactive:
+        selected_id = run_interactive_selector(sessions, titles_map)
+        if selected_id:
+            if run:
+                # Find the session to get project path for cd
+                selected_session = next(
+                    (s for s in sessions if s["id"] == selected_id), None
+                )
+                if selected_session:
+                    project_path = project_name_to_path(selected_session["project"])
+                    click.echo(f"Resuming session in {project_path}...")
+                    # Run pi --resume with the session ID
+                    subprocess.run(["pi", "--resume", selected_id])
+            else:
+                # Just print the session ID for use with pi --resume
+                click.echo(f"\nSelected: {selected_id}")
+                click.echo(f"\nTo resume: pi --resume {selected_id}")
+    else:
+        for i, session_info in enumerate(sessions):
+            titles = titles_map.get(session_info["id"])
+
+            if simple:
+                line = format_resume_line(session_info, titles)
+                click.echo(line)
+            else:
+                line = format_resume_line_enhanced(session_info, titles)
+                click.echo(line)
+                if i < len(sessions) - 1:
+                    click.echo()  # Blank line between sessions
 
 
 @cli.command()

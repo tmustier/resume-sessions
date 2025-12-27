@@ -340,6 +340,66 @@ class TestEnhancedResumeDisplay:
         assert len(line.split("\n")[0]) <= 100  # Reasonable line length
 
 
+class TestInteractiveSelector:
+    """Tests for interactive session selector."""
+
+    def test_build_session_choices(self, tmp_path):
+        """Build choices for interactive selector."""
+        from datetime import datetime, timezone
+        from resume_sessions import build_session_choices
+
+        sessions = [
+            {
+                "id": "2025-01-15T10-30-00_abc123",
+                "project": "--Users-test-myproject--",
+                "path": tmp_path / "session.jsonl",
+                "modified": datetime.now(timezone.utc),
+                "first_message": "Fix the bug",
+                "message_count": 15,
+            }
+        ]
+        titles_map = {"2025-01-15T10-30-00_abc123": ["Fix auth"]}
+
+        choices = build_session_choices(sessions, titles_map)
+        assert len(choices) == 1
+        assert "Fix auth" in choices[0]["display"]
+        assert choices[0]["session_id"] == "2025-01-15T10-30-00_abc123"
+
+    def test_fuzzy_filter_sessions(self, tmp_path):
+        """Filter sessions by fuzzy search."""
+        from datetime import datetime, timezone
+        from resume_sessions import fuzzy_filter_sessions
+
+        sessions = [
+            {
+                "id": "session1",
+                "project": "--Users-test-dashboard--",
+                "first_message": "Fix login bug",
+                "message_count": 10,
+            },
+            {
+                "id": "session2",
+                "project": "--Users-test-api--",
+                "first_message": "Add user endpoint",
+                "message_count": 5,
+            },
+        ]
+
+        # Filter by project
+        result = fuzzy_filter_sessions(sessions, "dashboard")
+        assert len(result) == 1
+        assert result[0]["id"] == "session1"
+
+        # Filter by message content
+        result = fuzzy_filter_sessions(sessions, "endpoint")
+        assert len(result) == 1
+        assert result[0]["id"] == "session2"
+
+        # No match
+        result = fuzzy_filter_sessions(sessions, "xyz123")
+        assert len(result) == 0
+
+
 class TestCLI:
     """Tests for CLI commands."""
 
