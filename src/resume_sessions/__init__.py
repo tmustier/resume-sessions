@@ -111,8 +111,8 @@ def format_resume_line_enhanced(session_info: dict, titles: Optional[list[str]])
     """Format a session for enhanced resume display.
 
     Shows:
-      Line 1: Title (or project path if no title)
-      Line 2: First message (truncated) + metadata
+      Line 1: First message (bold) - what you said to start the session
+      Line 2: time · messages · project · [title if available]
 
     Args:
         session_info: dict with id, project, path, modified, first_message, message_count
@@ -121,11 +121,14 @@ def format_resume_line_enhanced(session_info: dict, titles: Optional[list[str]])
     Returns:
         Multi-line formatted string
     """
-    # Format title
-    if titles:
-        title_str = format_titles(titles, max_length=60)
-    else:
-        title_str = project_name_to_path(session_info.get("project", ""))
+    # Format first message (truncated)
+    first_msg = session_info.get("first_message", "")
+    first_msg = " ".join(first_msg.split())  # Normalize whitespace
+    if not first_msg:
+        first_msg = "(empty session)"
+    max_msg_len = 80
+    if len(first_msg) > max_msg_len:
+        first_msg = first_msg[: max_msg_len - 3] + "..."
 
     # Format relative time
     modified = session_info.get("modified")
@@ -138,27 +141,25 @@ def format_resume_line_enhanced(session_info: dict, titles: Optional[list[str]])
     count = session_info.get("message_count", 0)
     count_str = f"{count} message{'s' if count != 1 else ''}"
 
-    # Format first message (truncated)
-    first_msg = session_info.get("first_message", "")
-    # Normalize whitespace
-    first_msg = " ".join(first_msg.split())
-    max_msg_len = 70
-    if len(first_msg) > max_msg_len:
-        first_msg = first_msg[: max_msg_len - 3] + "..."
-
-    # Build output
-    lines = []
-    lines.append(click.style(title_str, bold=True))
-
-    # Second line: first message (dimmed) if available
-    if first_msg:
-        lines.append(click.style(f"  {first_msg}", dim=True))
-
-    # Third line: metadata
+    # Format project path
     project_path = project_name_to_path(session_info.get("project", ""))
     if len(project_path) > 25:
         project_path = "..." + project_path[-22:]
-    meta = f"  {time_str} · {count_str} · {project_path}"
+
+    # Format title if available
+    title_suffix = ""
+    if titles:
+        title_str = format_titles(titles, max_length=40)
+        if len(title_str) > 45:
+            title_str = title_str[:42] + "..."
+        title_suffix = f" · [{title_str}]"
+
+    # Build output
+    lines = []
+    lines.append(click.style(first_msg, bold=True))
+
+    # Second line: metadata with optional title
+    meta = f"  {time_str} · {count_str} · {project_path}{title_suffix}"
     lines.append(click.style(meta, dim=True))
 
     return "\n".join(lines)
