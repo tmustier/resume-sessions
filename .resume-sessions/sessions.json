@@ -26,9 +26,10 @@
       "Update docs: README with new CLI usage, progress log for session 3",
       "Fix hook to use first line of commit message only",
       "Implement Claude Code hook for session titles\n\n- Add install_claude_code_hook() that:\n  - Creates ~/.claude/hooks/resume-sessions-hook.py\n  - Updates ~/.claude/settings.json with PostToolUse hook\n- Hook extracts commit message from git commit commands\n- Uses first line only (same as Pi hook)\n- 42 tests passing",
-      "Update docs: Claude Code now supported, all features complete"
+      "Update docs: Claude Code now supported, all features complete",
+      "Truncate long titles in interactive selector"
     ],
     "created": "2025-12-27T01:36:55.961Z",
-    "last_updated": "2025-12-27T07:14:12.425Z"
+    "last_updated": "2025-12-30T16:59:13.448Z"
   }
 }

@@ -216,44 +216,46 @@ def build_session_choices(
         titles_map: Map of session_id -> list of titles
 
     Returns:
-        List of choice dicts with 'display' and 'session_id' keys
+        List of choice dicts with all info needed for display
     """
     choices = []
 
     for session in sessions:
         session_id = session["id"]
         titles = titles_map.get(session_id, [])
+        project_path = project_name_to_path(session.get("project", ""))
 
-        # Build display string
-        if titles:
-            title_str = format_titles(titles, max_length=40)
-        else:
-            title_str = project_name_to_path(session.get("project", ""))
+        # Get first message (truncated)
+        first_msg = session.get("first_message", "")
+        first_msg = " ".join(first_msg.split())  # Normalize whitespace
 
-        # Truncate if still too long
-        if len(title_str) > 50:
-            title_str = title_str[:47] + "..."
-
-        # Add relative time
+        # Get relative time
         modified = session.get("modified")
         if isinstance(modified, datetime):
             time_str = format_relative_time(modified)
         else:
             time_str = ""
 
-        # Add message count
+        # Get message count
         count = session.get("message_count", 0)
-        count_str = f"{count} msgs"
 
-        # Format display line
-        display = f"{title_str}  ({time_str}, {count_str})"
+        # Format title if available
+        title_str = ""
+        if titles:
+            title_str = format_titles(titles, max_length=50)
+
+        # Build searchable text for filtering
+        searchable = f"{project_path} {first_msg} {title_str}".lower()
 
         choices.append(
             {
-                "display": display,
                 "session_id": session_id,
-                "project": session.get("project", ""),
-                "titles": titles,
+                "first_message": first_msg,
+                "title": title_str,
+                "project": project_path,
+                "time": time_str,
+                "message_count": count,
+                "searchable": searchable,
             }
         )
 
@@ -265,6 +267,10 @@ def run_interactive_selector(
 ) -> Optional[str]:
     """Run interactive session selector using rich.
 
+    Display format (2 lines per session, like Pi/Claude Code):
+      › First message truncated to fit terminal width...
+        3 hours ago · 26 messages · ~/project · [Title if available]
+
     Args:
         sessions: List of session info dicts
         titles_map: Map of session_id -> list of titles
@@ -272,6 +278,7 @@ def run_interactive_selector(
     Returns:
         Selected session_id or None if cancelled
     """
+    import shutil
     import sys
     import termios
     import tty
@@ -286,16 +293,58 @@ def run_interactive_selector(
     selected_idx = 0
     search_query = ""
 
+    # Get terminal width
+    term_width = shutil.get_terminal_size().columns
+
     def get_filtered_choices():
         if not search_query:
             return choices
         query_lower = search_query.lower()
-        return [c for c in choices if query_lower in c["display"].lower()]
+        return [c for c in choices if query_lower in c["searchable"]]
+
+    def render_session(choice, is_selected, width):
+        """Render a single session as 2 lines."""
+        lines = []
+
+        # Line 1: First message (or placeholder)
+        cursor = "› " if is_selected else "  "
+        first_msg = choice["first_message"] or "(empty session)"
+        max_msg_len = width - 4  # Account for cursor and padding
+        if len(first_msg) > max_msg_len:
+            first_msg = first_msg[: max_msg_len - 3] + "..."
+
+        if is_selected:
+            lines.append(f"[bold cyan]{cursor}{first_msg}[/bold cyan]")
+        else:
+            lines.append(f"{cursor}{first_msg}")
+
+        # Line 2: Metadata
+        meta_parts = []
+        if choice["time"]:
+            meta_parts.append(choice["time"])
+        meta_parts.append(f"{choice['message_count']} messages")
+        meta_parts.append(choice["project"])
+
+        # Add title at the end if available
+        if choice["title"]:
+            title_display = choice["title"]
+            if len(title_display) > 40:
+                title_display = title_display[:37] + "..."
+            meta_parts.append(f"[{title_display}]")
+
+        meta_line = "    " + " · ".join(meta_parts)
+        # Truncate metadata line if too long
+        if len(meta_line) > width:
+            meta_line = meta_line[: width - 3] + "..."
+
+        lines.append(f"[dim]{meta_line}[/dim]")
+
+        return lines
 
     def render():
         console.clear()
         console.print(
-            "[bold]Resume Session[/bold]  (↑↓ navigate, Enter select, / search, q quit)\n"
+            "[bold]Resume Session[/bold]  ↑↓ navigate · Enter select · / search · q quit\n"
         )
 
         filtered = get_filtered_choices()
@@ -307,14 +356,17 @@ def run_interactive_selector(
             console.print("[dim]No matching sessions[/dim]")
             return filtered
 
-        for i, choice in enumerate(filtered[:15]):  # Show max 15
-            if i == selected_idx:
-                console.print(f"[bold cyan]› {choice['display']}[/bold cyan]")
-            else:
-                console.print(f"  {choice['display']}")
+        # Show max 8 sessions (2 lines each = 16 lines)
+        max_visible = 8
+        for i, choice in enumerate(filtered[:max_visible]):
+            lines = render_session(choice, i == selected_idx, term_width)
+            for line in lines:
+                console.print(line)
+            if i < min(len(filtered), max_visible) - 1:
+                console.print()  # Blank line between sessions
 
-        if len(filtered) > 15:
-            console.print(f"\n[dim]... and {len(filtered) - 15} more[/dim]")
+        if len(filtered) > max_visible:
+            console.print(f"\n[dim]... and {len(filtered) - max_visible} more[/dim]")
 
         return filtered
 

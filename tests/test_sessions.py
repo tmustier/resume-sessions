@@ -362,8 +362,11 @@ class TestInteractiveSelector:
 
         choices = build_session_choices(sessions, titles_map)
         assert len(choices) == 1
-        assert "Fix auth" in choices[0]["display"]
         assert choices[0]["session_id"] == "2025-01-15T10-30-00_abc123"
+        assert choices[0]["first_message"] == "Fix the bug"
+        assert choices[0]["title"] == "Fix auth"
+        assert choices[0]["message_count"] == 15
+        assert "myproject" in choices[0]["project"]
 
     def test_fuzzy_filter_sessions(self, tmp_path):
         """Filter sessions by fuzzy search."""
