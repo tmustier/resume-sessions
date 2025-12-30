@@ -226,9 +226,13 @@ def build_session_choices(
 
         # Build display string
         if titles:
-            title_str = format_titles(titles, max_length=50)
+            title_str = format_titles(titles, max_length=40)
         else:
             title_str = project_name_to_path(session.get("project", ""))
+
+        # Truncate if still too long
+        if len(title_str) > 50:
+            title_str = title_str[:47] + "..."
 
         # Add relative time
         modified = session.get("modified")

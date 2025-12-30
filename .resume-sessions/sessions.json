@@ -25,9 +25,10 @@
       "Add interactive session selector with search and --run option\n\n- Add rich dependency for TUI rendering\n- Add fuzzy_filter_sessions() for searching by project/message/title\n- Add build_session_choices() to prepare display data\n- Add run_interactive_selector() with keyboard navigation:\n  - ↑↓ to navigate, Enter to select, / to search, q to quit\n- Add --interactive/-i flag for TUI mode\n- Add --run flag to execute pi --resume with selected session\n- 40 tests passing",
       "Update docs: README with new CLI usage, progress log for session 3",
       "Fix hook to use first line of commit message only",
-      "Implement Claude Code hook for session titles\n\n- Add install_claude_code_hook() that:\n  - Creates ~/.claude/hooks/resume-sessions-hook.py\n  - Updates ~/.claude/settings.json with PostToolUse hook\n- Hook extracts commit message from git commit commands\n- Uses first line only (same as Pi hook)\n- 42 tests passing"
+      "Implement Claude Code hook for session titles\n\n- Add install_claude_code_hook() that:\n  - Creates ~/.claude/hooks/resume-sessions-hook.py\n  - Updates ~/.claude/settings.json with PostToolUse hook\n- Hook extracts commit message from git commit commands\n- Uses first line only (same as Pi hook)\n- 42 tests passing",
+      "Update docs: Claude Code now supported, all features complete"
     ],
     "created": "2025-12-27T01:36:55.961Z",
-    "last_updated": "2025-12-27T07:13:26.179Z"
+    "last_updated": "2025-12-27T07:14:12.425Z"
   }
 }
