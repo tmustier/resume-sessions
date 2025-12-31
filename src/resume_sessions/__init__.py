@@ -110,9 +110,10 @@ def parse_session_file(path: Path) -> dict:
 def format_resume_line_enhanced(session_info: dict, titles: Optional[list[str]]) -> str:
     """Format a session for enhanced resume display.
 
-    Shows:
-      Line 1: First message (bold) - what you said to start the session
-      Line 2: time · messages · project · [title if available]
+    Shows (per spec):
+      Line 1: Title (bold) - OR first message if no title
+      Line 2: First message (dimmed) - only if title was shown on line 1
+      Line 3: time · messages · project
 
     Args:
         session_info: dict with id, project, path, modified, first_message, message_count
@@ -124,9 +125,7 @@ def format_resume_line_enhanced(session_info: dict, titles: Optional[list[str]])
     # Format first message (truncated)
     first_msg = session_info.get("first_message", "")
     first_msg = " ".join(first_msg.split())  # Normalize whitespace
-    if not first_msg:
-        first_msg = "(empty session)"
-    max_msg_len = 80
+    max_msg_len = 70
     if len(first_msg) > max_msg_len:
         first_msg = first_msg[: max_msg_len - 3] + "..."
 
@@ -146,20 +145,24 @@ def format_resume_line_enhanced(session_info: dict, titles: Optional[list[str]])
     if len(project_path) > 25:
         project_path = "..." + project_path[-22:]
 
-    # Format title if available
-    title_suffix = ""
-    if titles:
-        title_str = format_titles(titles, max_length=40)
-        if len(title_str) > 45:
-            title_str = title_str[:42] + "..."
-        title_suffix = f" · [{title_str}]"
-
     # Build output
     lines = []
-    lines.append(click.style(first_msg, bold=True))
 
-    # Second line: metadata with optional title
-    meta = f"  {time_str} · {count_str} · {project_path}{title_suffix}"
+    if titles:
+        # Has title: show title on line 1, first message on line 2
+        title_str = format_titles(titles, max_length=70)
+        lines.append(click.style(title_str, bold=True))
+        if first_msg:
+            lines.append(click.style(f"  {first_msg}", dim=True))
+    else:
+        # No title: show first message on line 1 (as fallback)
+        if first_msg:
+            lines.append(click.style(first_msg, bold=True))
+        else:
+            lines.append(click.style("(empty session)", bold=True))
+
+    # Final line: metadata
+    meta = f"  {time_str} · {count_str} · {project_path}"
     lines.append(click.style(meta, dim=True))
 
     return "\n".join(lines)
@@ -304,37 +307,52 @@ def run_interactive_selector(
         return [c for c in choices if query_lower in c["searchable"]]
 
     def render_session(choice, is_selected, width):
-        """Render a single session as 2 lines."""
+        """Render a single session (2-3 lines per spec).
+
+        With title:    Title (bold)
+                       First message (dim)
+                       time · messages · project
+
+        Without title: First message (bold)
+                       time · messages · project
+        """
         lines = []
-
-        # Line 1: First message (or placeholder)
         cursor = "› " if is_selected else "  "
+        max_text_len = width - 4  # Account for cursor and padding
+
+        has_title = bool(choice["title"])
         first_msg = choice["first_message"] or "(empty session)"
-        max_msg_len = width - 4  # Account for cursor and padding
-        if len(first_msg) > max_msg_len:
-            first_msg = first_msg[: max_msg_len - 3] + "..."
+        if len(first_msg) > max_text_len:
+            first_msg = first_msg[: max_text_len - 3] + "..."
 
-        if is_selected:
-            lines.append(f"[bold cyan]{cursor}{first_msg}[/bold cyan]")
+        if has_title:
+            # Line 1: Title
+            title = choice["title"]
+            if len(title) > max_text_len:
+                title = title[: max_text_len - 3] + "..."
+            if is_selected:
+                lines.append(f"[bold cyan]{cursor}{title}[/bold cyan]")
+            else:
+                lines.append(f"{cursor}{title}")
+
+            # Line 2: First message (dimmed)
+            if choice["first_message"]:
+                lines.append(f"[dim]    {first_msg}[/dim]")
         else:
-            lines.append(f"{cursor}{first_msg}")
+            # No title: Line 1 is first message
+            if is_selected:
+                lines.append(f"[bold cyan]{cursor}{first_msg}[/bold cyan]")
+            else:
+                lines.append(f"{cursor}{first_msg}")
 
-        # Line 2: Metadata
+        # Final line: Metadata
         meta_parts = []
         if choice["time"]:
             meta_parts.append(choice["time"])
         meta_parts.append(f"{choice['message_count']} messages")
         meta_parts.append(choice["project"])
 
-        # Add title at the end if available
-        if choice["title"]:
-            title_display = choice["title"]
-            if len(title_display) > 40:
-                title_display = title_display[:37] + "..."
-            meta_parts.append(f"[{title_display}]")
-
         meta_line = "    " + " · ".join(meta_parts)
-        # Truncate metadata line if too long
         if len(meta_line) > width:
             meta_line = meta_line[: width - 3] + "..."
 

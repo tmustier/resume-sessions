@@ -28,9 +28,10 @@
       "Implement Claude Code hook for session titles\n\n- Add install_claude_code_hook() that:\n  - Creates ~/.claude/hooks/resume-sessions-hook.py\n  - Updates ~/.claude/settings.json with PostToolUse hook\n- Hook extracts commit message from git commit commands\n- Uses first line only (same as Pi hook)\n- 42 tests passing",
       "Update docs: Claude Code now supported, all features complete",
       "Truncate long titles in interactive selector",
-      "Redesign interactive selector: first message prominent, title as bonus"
+      "Redesign interactive selector: first message prominent, title as bonus",
+      "Align non-interactive format with interactive: first message prominent"
     ],
     "created": "2025-12-27T01:36:55.961Z",
-    "last_updated": "2025-12-30T17:12:47.743Z"
+    "last_updated": "2025-12-30T17:14:29.038Z"
   }
 }
