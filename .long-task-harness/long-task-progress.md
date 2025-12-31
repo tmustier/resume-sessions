@@ -27,14 +27,15 @@ Auto-titled sessions for AI coding agents. Makes `--resume` actually useful by s
 - Core session storage (load/save/update)
 - Title formatting with abbreviation
 - CLI commands (title, show, list, install, resume)
-- Pi hook: extracts commit message, saves as title, updates tab
+- Pi hook: extracts commit message (first line only), saves as title, updates tab
+- Claude Code hook: same functionality via PostToolUse
 - Terminal tab title updates on commit
-- Enhanced resume display with relative time, first message, message count
-- Interactive session selector with search and keyboard navigation
-- 40 tests passing
+- Enhanced resume display per spec: title on line 1, first message on line 2
+- Interactive session selector with scrolling and search
+- 42 tests passing
 
 ### What's Not Working
-- Nothing currently!
+- Search mode causes terminal placement issues (visual glitch)
 
 ### Blocked On
 - Nothing
@@ -42,6 +43,44 @@ Auto-titled sessions for AI coding agents. Makes `--resume` actually useful by s
 ---
 
 ## Session Log
+
+### Session 4 | 2025-12-30 | Commits: 4c8a620..bbabe2f
+
+#### Metadata
+- **Features**: cli-001 (refined), cli-002 (refined), hook-002 (completed)
+- **Files Changed**: 
+  - `src/resume_sessions/__init__.py` - Claude Code hook, display fixes, scrolling
+  - `tests/test_sessions.py` - 42 tests
+  - `~/.claude/hooks/resume-sessions-hook.py` - Claude Code hook script
+  - `~/.claude/settings.json` - hook configuration
+
+#### Goal
+Fix CLI display to match spec, implement Claude Code hook, fix interactive bugs
+
+#### Accomplished
+- [x] Fixed Pi hook to extract only first line of commit message
+- [x] Implemented Claude Code hook (PostToolUse for Bash)
+- [x] Fixed display format to match spec: title on line 1, first message as context
+- [x] Initially diverged from spec (first message primary) - reverted after review
+- [x] Added scrolling to interactive selector (was stuck at 8 items)
+- [x] Added search mode with visual prompt (`Search: query_`)
+- [x] Show scroll indicator ("1-8 of 60")
+
+#### Decisions
+- **[D9]** Title is primary (the differentiator), first message is fallback/context
+- **[D10]** Claude Code hook uses Python script via PostToolUse settings.json
+
+#### Surprises
+- **[S1]** Initially made first message primary like Pi/Claude Code/Droid, but that defeats the purpose - titles ARE the differentiator
+
+#### Known Issues
+- Search mode causes terminal placement issues (visual glitch) - TODO for next session
+
+#### Next Steps
+1. Fix search mode terminal glitch
+2. Consider adding numbered selection (`resume-sessions resume 1`)
+
+---
 
 ### Session 3 | 2025-12-27 | Commits: 4c8a620..d6b8ad4
 
