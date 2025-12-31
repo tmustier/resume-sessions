@@ -295,7 +295,10 @@ def run_interactive_selector(
         return None
 
     selected_idx = 0
+    scroll_offset = 0
     search_query = ""
+    search_mode = False
+    max_visible = 8
 
     # Get terminal width
     term_width = shutil.get_terminal_size().columns
@@ -305,6 +308,14 @@ def run_interactive_selector(
             return choices
         query_lower = search_query.lower()
         return [c for c in choices if query_lower in c["searchable"]]
+
+    def adjust_scroll():
+        """Adjust scroll_offset to keep selected_idx visible."""
+        nonlocal scroll_offset
+        if selected_idx < scroll_offset:
+            scroll_offset = selected_idx
+        elif selected_idx >= scroll_offset + max_visible:
+            scroll_offset = selected_idx - max_visible + 1
 
     def render_session(choice, is_selected, width):
         """Render a single session (2-3 lines per spec).
@@ -361,6 +372,7 @@ def run_interactive_selector(
         return lines
 
     def render():
+        nonlocal scroll_offset
         console.clear()
         console.print(
             "[bold]Resume Session[/bold]  ↑↓ navigate · Enter select · / search · q quit\n"
@@ -368,24 +380,32 @@ def run_interactive_selector(
 
         filtered = get_filtered_choices()
 
-        if search_query:
-            console.print(f"[cyan]Search: {search_query}[/cyan]\n")
+        # Show search prompt
+        if search_mode or search_query:
+            console.print(f"[cyan]Search: {search_query}_[/cyan]\n")
 
         if not filtered:
             console.print("[dim]No matching sessions[/dim]")
             return filtered
 
-        # Show max 8 sessions (2 lines each = 16 lines)
-        max_visible = 8
-        for i, choice in enumerate(filtered[:max_visible]):
+        # Ensure scroll_offset is valid for filtered results
+        if scroll_offset > len(filtered) - max_visible:
+            scroll_offset = max(0, len(filtered) - max_visible)
+
+        # Show sessions from scroll_offset
+        visible_end = min(scroll_offset + max_visible, len(filtered))
+        for i in range(scroll_offset, visible_end):
+            choice = filtered[i]
             lines = render_session(choice, i == selected_idx, term_width)
             for line in lines:
                 console.print(line)
-            if i < min(len(filtered), max_visible) - 1:
+            if i < visible_end - 1:
                 console.print()  # Blank line between sessions
 
+        # Show scroll indicator
         if len(filtered) > max_visible:
-            console.print(f"\n[dim]... and {len(filtered) - max_visible} more[/dim]")
+            showing = f"{scroll_offset + 1}-{visible_end} of {len(filtered)}"
+            console.print(f"\n[dim]{showing}[/dim]")
 
         return filtered
 
@@ -408,6 +428,7 @@ def run_interactive_selector(
 
     try:
         while True:
+            adjust_scroll()
             filtered = render()
 
             ch = getch()
@@ -422,21 +443,30 @@ def run_interactive_selector(
                     min(len(filtered) - 1, selected_idx + 1) if filtered else 0
                 )
             elif ch == "\r" or ch == "\n":  # Enter
-                if filtered and 0 <= selected_idx < len(filtered):
+                if search_mode:
+                    search_mode = False  # Exit search mode on Enter
+                elif filtered and 0 <= selected_idx < len(filtered):
                     console.clear()
                     return filtered[selected_idx]["session_id"]
             elif ch == "/":  # Start search
+                search_mode = True
                 search_query = ""
                 selected_idx = 0
+                scroll_offset = 0
             elif ch == "\x7f":  # Backspace
-                search_query = search_query[:-1]
-                selected_idx = 0
+                if search_query:
+                    search_query = search_query[:-1]
+                    selected_idx = 0
+                    scroll_offset = 0
             elif ch == "\x1b":  # Escape - clear search
+                search_mode = False
                 search_query = ""
                 selected_idx = 0
-            elif ch.isprintable():
+                scroll_offset = 0
+            elif search_mode and ch.isprintable():
                 search_query += ch
                 selected_idx = 0
+                scroll_offset = 0
 
     except KeyboardInterrupt:
         console.clear()
