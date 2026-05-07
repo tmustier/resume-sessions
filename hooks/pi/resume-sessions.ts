@@ -2,7 +2,7 @@
  * Pi agent hook for resume-sessions.
  * After a successful git commit, extracts the commit message and uses it as the session title.
  */
-import type { HookAPI } from "@mariozechner/pi-coding-agent/hooks";
+import type { HookAPI } from "@earendil-works/pi-coding-agent/hooks";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
